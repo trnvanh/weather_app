@@ -75,9 +75,9 @@
 		D9BB615F2E75435F0080B751 = {
 			isa = PBXGroup;
 			children = (
-				D9BB616A2E75435F0080B751 /* WeatherDemoApp */,
 				D9BB617A2E7543610080B751 /* WeatherDemoAppTests */,
 				D9BB61842E7543610080B751 /* WeatherDemoAppUITests */,
+				D9BB616A2E75435F0080B751 /* WeatherDemoApp */,
 				D9BB61692E75435F0080B751 /* Products */,
 			);
 			sourceTree = "<group>";
