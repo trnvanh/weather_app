@@ -10,62 +10,64 @@ import SwiftUI
 struct WeatherView: View {
     var weather: ResponseBody
     
+    var backgroundURL: URL {
+        return URL(string: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=60&w=1600")!
+    }
+    
     var body: some View {
-        ZStack(alignment: .leading) {
+        ZStack {
+            AsyncImage(url: backgroundURL) {image in image.resizable()
+                    .blur(radius: 10)
+                    .overlay(Color.black.opacity(0.3))
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            } placeholder: {
+                Color.clear.ignoresSafeArea()
+            }
+            
             VStack {
+                // City and date time
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(weather.name).bold().font(.title)
+                    Text(weather.name).bold().font(.largeTitle).shadow(radius: 5)
                     Text("Today, \(Date().formatted(.dateTime.month().day().hour().minute()))").fontWeight(.light)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.9))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal)
                 
                 Spacer()
                 
-                VStack {
-                    HStack {
-                        VStack(spacing: 10) {
-                            
-                            AsyncImage(url: URL(string: "https://openweathermap.org/img/wn/\(weather.weather[0].icon)@2x.png")) {image in image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .font(.system(size:40))
-                            } placeholder: {
-                                ProgressView()
-                            }
-                            
-                            Text(weather.weather[0].main)
-                                .bold().font(.system(size: 20))
-                        }
-                        .frame(width: 100, alignment: .leading)
-                        
-                        Spacer()
-                        
-                        Text(weather.main.feels_like.roundDouble() + "°").font(.system(size: 80))
-                            .fontWeight(.bold)
-                            .padding()
-                    }.padding()
-                    
-                    
-                    AsyncImage(url: URL(string: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8Y2l0eXxlbnwwfHwwfHx8MA%3D%3D")) {image in image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 350)
+                HStack(alignment: .center, spacing: 20) {
+                    AsyncImage(url: URL(string: "https://openweathermap.org/img/wn/\(weather.weather[0].icon)@2x.png")) { image in
+                        image.resizable()
+                            .scaledToFit()
+                            .frame(width: 100, height: 100)
+                            .shadow(radius: 10)
+                            .modifier(WeatherAnimation(condition: weather.weather[0].main))
                     } placeholder: {
                         ProgressView()
                     }
                     
-                    Spacer()
+                    Text("\(weather.main.feels_like.roundDouble())°")
+                        .font(.system(size: 80, weight: .bold))
+                        .shadow(radius: 10)
                 }
-                .frame(maxWidth: .infinity)
-            }
-            .padding()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            
-            VStack {
+                .padding()
+                .background(.ultraThinMaterial)
+                .cornerRadius(25)
+                .padding(.horizontal)
+                
+                Text(weather.weather[0].main)
+                    .font(.title2).bold()
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.top, 10)
+                
                 Spacer()
+                
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Weather now")
-                        .bold().padding(.bottom)
+                        .bold().font(.headline)
                     
                     HStack {
                         WeatherRow(logo: "thermometer.low", name: "Min temp", value:(weather.main.temp_min.roundDouble()+"°"))
@@ -82,10 +84,14 @@ struct WeatherView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
                 .padding(.bottom, 20)
+                .padding(.horizontal)
                 .foregroundColor(Color(hue: 0.656, saturation: 0.787, brightness: 0.354))
                 .background(.white)
                 .cornerRadius(20, corners: [.topLeft, .topRight])
+                
             }
+            
+            
         }
         .edgesIgnoringSafeArea(.bottom)
         .background(Color(hue: 0.656, saturation: 0.787, brightness: 0.354, opacity: 1))
@@ -93,6 +99,85 @@ struct WeatherView: View {
     }
 }
 
+
 #Preview {
     WeatherView(weather: previewWeather)
+}
+
+// Animations depending on weather
+struct WeatherAnimation: ViewModifier {
+    var condition: String
+    
+    func body(content: Content) -> some View {
+        switch condition.lowercased() {
+        case "clear":
+            // Sun pulse glow
+            content.overlay(
+                Circle()
+                    .stroke(Color.yellow.opacity(0.6), lineWidth: 15)
+                    .scaleEffect(1.2)
+                    .blur(radius: 30)
+                    .opacity(0.8)
+                    .animation(.easeInOut(duration: 2).repeatForever(), value: UUID())
+            )
+        case "rain":
+            // Falling raindrops
+            content.overlay(
+                RainEffect()
+            )
+        case "snow":
+            // Falling snowflakes
+            content.overlay(
+                SnowEffect()
+            )
+        default:
+            content
+        }
+    }
+}
+
+// Simple raindrop animation
+struct RainEffect: View {
+    @State private var dropY: CGFloat = -100
+    
+    var body: some View {
+        GeometryReader { geo in
+            ForEach(0..<20, id: \.self) { i in
+                Circle()
+                    .fill(Color.white.opacity(0.3))
+                    .frame(width: 3, height: 10)
+                    .position(x: CGFloat.random(in: 0...geo.size.width),
+                              y: dropY)
+                    .animation(
+                        .linear(duration: Double.random(in: 1...2))
+                        .repeatForever(autoreverses: false),
+                        value: dropY
+                    )
+            }
+        }
+        .onAppear { dropY = 1000 }
+    }
+}
+
+// Simple snowflake animation
+struct SnowEffect: View {
+    @State private var snowY: CGFloat = -50
+    
+    var body: some View {
+        GeometryReader { geo in
+            ForEach(0..<15, id: \.self) { i in
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: CGFloat.random(in: 5...10))
+                    .position(x: CGFloat.random(in: 0...geo.size.width),
+                              y: snowY)
+                    .animation(
+                        .linear(duration: Double.random(in: 5...8))
+                        .repeatForever(autoreverses: false),
+                        value: snowY
+                    )
+            }
+        }
+        .onAppear { snowY = 1000 }
+    }
 }
