@@ -8,7 +8,7 @@
 import Foundation
 import CoreLocation
 
-class WeatherManager {
+class WeatherManager: ObservableObject {
     func getCurrentWeather(latitude: CLLocationDegrees, longitude: CLLocationDegrees) async throws -> ResponseBody {
         guard let url = URL(string:"https://api.openweathermap.org/data/2.5/weather?lat=\(latitude)&lon=\(longitude)&appid=\("d4f8ba3b8cfb0dfbafd0ea52b29a3e2f")&units=metric") else {fatalError("Missing URL")}
         
@@ -26,13 +26,14 @@ class WeatherManager {
     }
 }
 
-// Model of the response body we get from calling the OpenWeather API
+// Model of the response body from calling the OpenWeather API for weather 
 struct ResponseBody: Decodable {
     var coord: CoordinatesResponse
     var weather: [WeatherResponse]
     var main: MainResponse
     var name: String
     var wind: WindResponse
+    var sys: SysResponse
 
     struct CoordinatesResponse: Decodable {
         var lon: Double
@@ -58,6 +59,10 @@ struct ResponseBody: Decodable {
     struct WindResponse: Decodable {
         var speed: Double
         var deg: Double
+    }
+    
+    struct SysResponse: Decodable {
+        var country: String
     }
 }
 

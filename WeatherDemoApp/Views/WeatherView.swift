@@ -8,10 +8,25 @@
 import SwiftUI
 
 struct WeatherView: View {
-    var weather: ResponseBody
+    @State var weather: ResponseBody
+    
+    @State private var showSearch: Bool = false
+    @State private var selectedCity: City? = nil
+    
+    @EnvironmentObject var weatherManager: WeatherManager
+    
+    @EnvironmentObject var forecastManager: ForecastManager
+    
+    @EnvironmentObject var favoritesManager: FavoritesManager
+    
+    @StateObject private var citySearchManager = CitySearchManager()
     
     var backgroundURL: URL {
         return URL(string: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=60&w=1600")!
+    }
+    
+    var isFavorite: Bool {
+            favoritesManager.isFavorite(cityName: weather.name)
     }
     
     var body: some View {
@@ -26,15 +41,75 @@ struct WeatherView: View {
             }
             
             VStack {
-                // City and date time
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(weather.name).bold().font(.largeTitle).shadow(radius: 5)
-                    Text("Today, \(Date().formatted(.dateTime.month().day().hour().minute()))").fontWeight(.light)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.9))
+                HStack {
+                    Text("Search...")
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        showSearch = true
+                    }) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 15)
+                    }
+                    .sheet(isPresented: $showSearch) {
+                                SearchView(selectedCity: $selectedCity)
+                                    .environmentObject(citySearchManager)
+                    }
+                    .onChange(of: selectedCity) { newCity in
+                        if let city = newCity {
+                            Task {
+                                do {
+                                    let newWeather = try await weatherManager.getCurrentWeather(
+                                        latitude: city.lat,
+                                        longitude: city.lon
+                                    )
+                                    let newForecast = try await forecastManager.getCurrentWeather(
+                                        latitude: city.lat,
+                                        longitude: city.lon
+                                    )
+                                    await MainActor.run {
+                                        self.weather = newWeather
+                                    }
+                                } catch {
+                                    print("Failed to fetch weather for \(city.name): \(error)")
+                                }
+                            }
+                        }
+                    }
+                    
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
+                .padding(.top, 40)
+                
+                HStack(spacing: 20) {
+                    // City and date time
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(weather.name).bold().font(.largeTitle).shadow(radius: 5)
+                        Text("Today, \(Date().formatted(.dateTime.month().day().hour().minute()))").fontWeight(.light)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal)
+                    
+                    // Button to add city to Favorites
+                    Button(action: {
+                        if isFavorite {
+                            favoritesManager.remove(cityName: weather.name)
+                        } else {
+                            favoritesManager.add(city: City(name: weather.name, lat: weather.coord.lat, lon: weather.coord.lon, country: weather.sys.country))
+                        }
+                    }) {
+                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                            .font(.largeTitle)
+                            .foregroundColor(isFavorite ? .red : .white)
+                            .padding(.horizontal,15)
+                    }
+                }
+                
                 
                 Spacer()
                 
@@ -66,7 +141,7 @@ struct WeatherView: View {
                 Spacer()
                 
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Weather now")
+                    Text("Weather indexes now")
                         .bold().font(.headline)
                     
                     HStack {
@@ -82,7 +157,7 @@ struct WeatherView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+                .padding(.top,20)
                 .padding(.bottom, 20)
                 .padding(.horizontal)
                 .foregroundColor(Color(hue: 0.656, saturation: 0.787, brightness: 0.354))
@@ -91,17 +166,21 @@ struct WeatherView: View {
                 
             }
             
-            
         }
-        .edgesIgnoringSafeArea(.bottom)
         .background(Color(hue: 0.656, saturation: 0.787, brightness: 0.354, opacity: 1))
         .preferredColorScheme(.dark)
+        
     }
+        
 }
 
 
 #Preview {
     WeatherView(weather: previewWeather)
+        .environmentObject(WeatherManager())
+        .environmentObject(CitySearchManager())
+        .environmentObject(FavoritesManager())
+        .environmentObject(ForecastManager())
 }
 
 // Animations depending on weather
