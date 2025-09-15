@@ -14,12 +14,14 @@ struct WelcomeView: View {
     var body: some View {
         VStack {
             VStack(spacing: 20) {
-                Text("Welcome to the Weather App")
+                GifView(gifName: "welcome")
+                                .ignoresSafeArea()
+                Text("What's the weather like today?")
                     .bold().font(.title)
                 Text("Please share your location to start").padding()
             }
             .multilineTextAlignment(.center)
-            .padding()
+            .padding(.top, 20)
             
             LocationButton(.shareCurrentLocation) {
                 locationManager.requestLocation()

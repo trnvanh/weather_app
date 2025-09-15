@@ -13,27 +13,28 @@ struct FavoriteRow: View {
     @EnvironmentObject var forecastManager: ForecastManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     
-    @State private var weather: ResponseBody? = previewWeather
-    
+    @State private var weather: ResponseBody? = nil
     @AppStorage("selectedCity") private var selectedCityData: Data?
     
     var body: some View {
         Button {
             Task {
                 do {
-                    // Fetch latest weather and forecast
+                    // Fetch latest weather for this favorite
                     let fetchedWeather = try await weatherManager.getCurrentWeather(
                         latitude: favorite.lat,
                         longitude: favorite.lon
                     )
-                    let fetchedForecast = try await forecastManager.getCurrentWeather(
+                    let _ = try await forecastManager.getCurrentWeather(
                         latitude: favorite.lat,
                         longitude: favorite.lon
                     )
                     
-                    // Update FavoritesManager (persistent storage)
+                    // Update this row's weather
                     await MainActor.run {
                         self.weather = fetchedWeather
+                        
+                        // Save selected city globally
                         if let encodedCity = try? JSONEncoder().encode(favorite) {
                             selectedCityData = encodedCity
                         }
@@ -51,12 +52,10 @@ struct FavoriteRow: View {
                             .scaledToFit()
                             .frame(width: 50, height: 50)
                     } placeholder: {
-                        ProgressView()
-                            .frame(width: 50, height: 50)
+                        ProgressView().frame(width: 50, height: 50)
                     }
                 } else {
-                    ProgressView()
-                        .frame(width: 50, height: 50)
+                    ProgressView().frame(width: 50, height: 50)
                 }
                 
                 // City info
@@ -64,7 +63,7 @@ struct FavoriteRow: View {
                     Text(favorite.name)
                         .font(.headline)
                         .foregroundColor(.white)
-                    Text(weather?.sys.country ?? favorite.country)
+                    Text(favorite.country)
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.7))
                 }
@@ -72,9 +71,11 @@ struct FavoriteRow: View {
                 Spacer()
                 
                 // Temperature
-                Text(weather != nil ? "\(weather!.main.temp.roundDouble())°" : "--°")
-                    .font(.title3).bold()
-                    .foregroundColor(.white)
+                if let temp = weather?.main.temp {
+                    Text("\(temp.roundDouble())°")
+                        .font(.title3).bold()
+                        .foregroundColor(.white)
+                }
             }
             .padding()
             .background(.ultraThinMaterial)
@@ -92,10 +93,8 @@ struct FavoriteRow: View {
             }
         }
         .task {
-            // Pre-fetch weather for smooth UI
-            if weather == nil {
-                await fetchWeather()
-            }
+            // Load weather when row appears
+            await fetchWeather()
         }
     }
     
@@ -113,27 +112,3 @@ struct FavoriteRow: View {
         }
     }
 }
-
-// Preview
-#Preview {
-    let favoritesManager = FavoritesManager()
-    favoritesManager.favoriteCities = [
-        City(name: "Helsinki", lat: 60.1699, lon: 24.9384, country: "FI"),
-        City(name: "Tampere", lat: 61.4981, lon: 23.7610, country: "FI")
-    ]
-    
-    return VStack {
-        ForEach(favoritesManager.favoriteCities, id: \.id) { city in
-            FavoriteRow(favorite: city)
-                .environmentObject(WeatherManager())
-                .environmentObject(ForecastManager())
-                .environmentObject(favoritesManager)
-        }
-    }
-    .background(
-        LinearGradient(gradient: Gradient(colors: [.blue, .indigo]),
-                       startPoint: .topLeading,
-                       endPoint: .bottomTrailing)
-    )
-}
-
