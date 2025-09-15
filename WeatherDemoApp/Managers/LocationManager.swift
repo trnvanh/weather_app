@@ -37,3 +37,4 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         isLoading = false
     }
 }
+

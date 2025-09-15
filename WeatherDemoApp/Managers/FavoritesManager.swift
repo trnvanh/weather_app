@@ -9,7 +9,15 @@ import Foundation
 import SwiftUI
 
 class FavoritesManager: ObservableObject {
-    @Published private(set) var favoriteCities: [City] = []
+    @Published var favoriteCities: [City] = [] {
+        didSet {saveFavorites()}
+    }
+    
+    private let favoritesKey = "favorites"
+    
+    init() {
+            loadFavorites()
+    }
     
     func add(city: City) {
         if !favoriteCities.contains(where: { $0.name == city.name }) {
@@ -22,10 +30,23 @@ class FavoritesManager: ObservableObject {
     }
     
     func isFavorite(cityName: String) -> Bool {
-        favoriteCities.contains { $0.name == cityName }
+        favoriteCities.contains (where: { $0.name == cityName })
     }
     
     func clearAll() {
         favoriteCities.removeAll()
+    }
+    
+    private func saveFavorites() {
+        if let data = try? JSONEncoder().encode(favoriteCities) {
+            UserDefaults.standard.set(data, forKey: favoritesKey)
+        }
+    }
+    
+    private func loadFavorites() {
+        if let data = UserDefaults.standard.data(forKey: favoritesKey),
+           let decoded = try? JSONDecoder().decode([City].self, from: data) {
+            favoriteCities = decoded
+        }
     }
 }

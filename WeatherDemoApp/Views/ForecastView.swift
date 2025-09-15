@@ -8,8 +8,11 @@
 import SwiftUI
 
 struct ForecastView: View {
-    var forecast: ForecastResponseBody
+    @Binding var forecast: ForecastResponseBody
+    
     @State private var selectedDay: Date = Date()
+    
+    @EnvironmentObject var forecastManager: ForecastManager
     
     private var groupedByDate: [Date: [ForecastResponseBody.ForecastEntry]] {
         Dictionary(grouping: forecast.list) {
@@ -90,9 +93,11 @@ struct ForecastView: View {
                            endPoint: .bottomTrailing)
 
         )
+        
     }
+        
 }
 
 #Preview {
-    ForecastView(forecast: previewForecast)
+    ForecastView(forecast: .constant(previewForecast))
 }

@@ -8,81 +8,66 @@
 import SwiftUI
 import SwiftData
 
+
 struct ContentView: View {
     @StateObject var locationManager = LocationManager()
     
-    @State var weather:ResponseBody?
-
-    @State var forecast:ForecastResponseBody?
-    
-    @State private var selectedCity: City? = nil
-    @State private var currentWeather: ResponseBody = previewWeather
+    @State private var weather: ResponseBody = previewWeather
+    @State private var forecast: ForecastResponseBody = previewForecast
     
     @StateObject private var favoritesManager = FavoritesManager()
     @StateObject private var weatherManager = WeatherManager()
     @StateObject private var forecastManager = ForecastManager()
     
+    @AppStorage("selectedCity") private var selectedCityData: Data?
+    var selectedCity: City? {
+        get { selectedCityData.flatMap(City.from) }
+        set { selectedCityData = newValue?.toData() }
+    }
+    
     var body: some View {
         Group {
             if let location = locationManager.location {
                 TabView {
-                    // WeatherView
-                    VStack {
-                        if let weather = weather {
-                            WeatherView(weather: weather)
-                        } else {
-                            LoadingView()
-                                .task {
-                                    do {
-                                        weather = try await
-                                        weatherManager.getCurrentWeather(latitude: location.latitude, longitude: location.longitude)
-                                        
-                                    } catch {
-                                        print("Error getting weather: \(error)")
-                                    }
-                                }
-                            
-                            
+                    // MARK: Weather tab
+                    WeatherView(weather: $weather, forecast: $forecast)
+                        .tabItem {
+                            Label("Weather", systemImage: "cloud.sun.fill")
                         }
-                    }
-                    .tabItem{
-                        Label("Weather", systemImage: "cloud.sun.fill")
-                    }
                     
-                    // ForecastView
-                    VStack {
-                        if let forecast = forecast {
-                            ForecastView(forecast: forecast)
-                        } else {
-                            LoadingView()
-                                .task {
-                                    do {
-                                        
-                                            forecast = try await
-                                            forecastManager.getCurrentWeather(latitude: location.latitude, longitude: location.longitude)
-                                        
-                                    } catch {
-                                        print("Error getting weather forecast: \(error)")
-                                    }
-                                }
+                    // MARK: Forecast tab
+                    ForecastView(forecast: $forecast)
+                        .tabItem {
+                            Label("Forecast", systemImage: "calendar")
                         }
-                    }
-                    .tabItem{
-                        Label("Forecast", systemImage: "calendar")
-                    }
                     
-                    // FavoritesView
-                    FavoritesView(selectedCity: $selectedCity, weather: $currentWeather).tabItem {
-                        Label("Favorites", systemImage: "bookmark.fill")
-                    }
+                    // MARK: Favorites tab
+                    FavoritesView(weather: $weather)
+                        .tabItem {
+                            Label("Favorites", systemImage: "bookmark.fill")
+                        }
                     
-                    // AvtivityView
-                    ActivityView().tabItem {
-                        Label("Activity", systemImage: "arrow.triangle.2.circlepath")
-                    }
+                    // MARK: Activity tab
+                    ActivityView()
+                        .tabItem {
+                            Label("Activity", systemImage: "arrow.triangle.2.circlepath")
+                        }
                 }
                 .tint(.blue)
                 .background(Color(hue: 0.656, saturation: 0.787, brightness: 0.354, opacity: 1))
+                .task {
+                    await fetchWeatherAndForecast(
+                        latitude: location.latitude,
+                        longitude: location.longitude
+                    )
+                    
+                }
+                .onChange(of: selectedCity) { newCity in
+                    guard let city = newCity else { return }
+                    Task {
+                        await fetchWeatherAndForecast(latitude: city.lat, longitude: city.lon)
+                    }
+                }
             } else {
                 if locationManager.isLoading {
                     LoadingView()
@@ -92,17 +77,32 @@ struct ContentView: View {
             }
         }
         .background(
-            LinearGradient(gradient: Gradient(colors: [.blue, .indigo]),
-                           startPoint: .topLeading,
-                           endPoint: .bottomTrailing))
+            LinearGradient(
+                gradient: Gradient(colors: [.blue, .indigo]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .preferredColorScheme(.dark)
         .environmentObject(favoritesManager)
         .environmentObject(weatherManager)
         .environmentObject(forecastManager)
     }
     
+    // MARK: - Helper function
+    func fetchWeatherAndForecast(latitude: Double, longitude: Double) async {
+        do {
+            let newWeather = try await weatherManager.getCurrentWeather(latitude: latitude, longitude: longitude)
+            let newForecast = try await forecastManager.getCurrentWeather(latitude: latitude, longitude: longitude)
+            await MainActor.run {
+                weather = newWeather
+                forecast = newForecast
+            }
+        } catch {
+            print("❌ Error fetching weather or forecast: \(error)")
+        }
+    }
 }
-    
 
 
 #Preview {

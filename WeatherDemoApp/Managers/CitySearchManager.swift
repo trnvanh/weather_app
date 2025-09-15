@@ -37,7 +37,7 @@ class CitySearchManager: ObservableObject {
 }
 
 
-struct City: Decodable, Equatable, Identifiable {
+struct City: Equatable, Identifiable, Codable {
     var id = UUID()
     var name: String
     var lat: Double
@@ -46,5 +46,14 @@ struct City: Decodable, Equatable, Identifiable {
     
     private enum CodingKeys: String, CodingKey {
             case name, lat, lon, country
+    }
+}
+
+extension City {
+    static func from(data: Data) -> City? {
+        try? JSONDecoder().decode(City.self, from: data)
+    }
+    func toData() -> Data? {
+        try? JSONEncoder().encode(self)
     }
 }

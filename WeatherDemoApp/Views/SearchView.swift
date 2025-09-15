@@ -9,7 +9,6 @@
 import SwiftUI
 
 struct SearchView: View {
-    @Binding var selectedCity: City?
     @Environment(\.dismiss) var dismiss
     
     @State private var query: String = ""
@@ -17,6 +16,8 @@ struct SearchView: View {
     
     @EnvironmentObject var weatherManager: WeatherManager
     @EnvironmentObject var forecastManager: ForecastManager
+    
+    @AppStorage("selectedCity") private var selectedCityData: Data?
     
     var body: some View {
         NavigationStack {
@@ -56,8 +57,13 @@ struct SearchView: View {
                         
                         ForEach(citySearchManager.searchResults) { city in
                             Button(action: {
-                                selectedCity = city
-                                dismiss()
+                                do {
+                                    let encodedCity = try JSONEncoder().encode(city)
+                                    selectedCityData = encodedCity
+                                    dismiss()
+                                } catch {
+                                    print("Failed to save selected city: \(error)")
+                                }
                             }) {
                                 HStack {
                                     Text("\(city.name), \(city.country)")
@@ -80,5 +86,5 @@ struct SearchView: View {
 }
 
 #Preview {
-    SearchView(selectedCity: .constant(nil))
+    SearchView()
 }

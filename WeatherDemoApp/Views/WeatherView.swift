@@ -8,30 +8,30 @@
 import SwiftUI
 
 struct WeatherView: View {
-    @State var weather: ResponseBody
+    @Binding var weather: ResponseBody
+    @Binding var forecast: ForecastResponseBody
     
     @State private var showSearch: Bool = false
-    @State private var selectedCity: City? = nil
     
     @EnvironmentObject var weatherManager: WeatherManager
-    
     @EnvironmentObject var forecastManager: ForecastManager
-    
     @EnvironmentObject var favoritesManager: FavoritesManager
     
     @StateObject private var citySearchManager = CitySearchManager()
     
     var backgroundURL: URL {
-        return URL(string: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=60&w=1600")!
+        URL(string: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=60&w=1600")!
     }
     
     var isFavorite: Bool {
-            favoritesManager.isFavorite(cityName: weather.name)
+        favoritesManager.isFavorite(cityName: weather.name)
     }
     
     var body: some View {
         ZStack {
-            AsyncImage(url: backgroundURL) {image in image.resizable()
+            // Background
+            AsyncImage(url: backgroundURL) { image in
+                image.resizable()
                     .blur(radius: 10)
                     .overlay(Color.black.opacity(0.3))
                     .ignoresSafeArea()
@@ -41,66 +41,47 @@ struct WeatherView: View {
             }
             
             VStack {
+                // MARK: Search bar
                 HStack {
                     Text("Search...")
-                    
                     Spacer()
-                    
-                    Button(action: {
-                        showSearch = true
-                    }) {
+                    Button(action: { showSearch = true }) {
                         Image(systemName: "magnifyingglass")
                             .font(.title2)
                             .foregroundColor(.white)
                             .padding(.horizontal, 15)
                     }
                     .sheet(isPresented: $showSearch) {
-                                SearchView(selectedCity: $selectedCity)
-                                    .environmentObject(citySearchManager)
-                    }
-                    .onChange(of: selectedCity) { newCity in
-                        if let city = newCity {
-                            Task {
-                                do {
-                                    let newWeather = try await weatherManager.getCurrentWeather(
-                                        latitude: city.lat,
-                                        longitude: city.lon
-                                    )
-                                    let newForecast = try await forecastManager.getCurrentWeather(
-                                        latitude: city.lat,
-                                        longitude: city.lon
-                                    )
-                                    await MainActor.run {
-                                        self.weather = newWeather
-                                    }
-                                } catch {
-                                    print("Failed to fetch weather for \(city.name): \(error)")
-                                }
-                            }
-                        }
+                        SearchView()
+                            .environmentObject(citySearchManager)
                     }
                     
                 }
                 .padding(.horizontal)
                 .padding(.top, 40)
                 
+                // MARK: Header row
                 HStack(spacing: 20) {
-                    // City and date time
                     VStack(alignment: .leading, spacing: 5) {
                         Text(weather.name).bold().font(.largeTitle).shadow(radius: 5)
-                        Text("Today, \(Date().formatted(.dateTime.month().day().hour().minute()))").fontWeight(.light)
+                        Text("Today, \(Date().formatted(.dateTime.month().day().hour().minute()))")
+                            .fontWeight(.light)
                             .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal)
                     
-                    // Button to add city to Favorites
                     Button(action: {
                         if isFavorite {
                             favoritesManager.remove(cityName: weather.name)
                         } else {
-                            favoritesManager.add(city: City(name: weather.name, lat: weather.coord.lat, lon: weather.coord.lon, country: weather.sys.country))
+                            favoritesManager.add(city: City(
+                                name: weather.name,
+                                lat: weather.coord.lat,
+                                lon: weather.coord.lon,
+                                country: weather.sys.country
+                            ))
                         }
                     }) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
@@ -110,9 +91,9 @@ struct WeatherView: View {
                     }
                 }
                 
-                
                 Spacer()
                 
+                // MARK: Main weather card
                 HStack(alignment: .center, spacing: 20) {
                     AsyncImage(url: URL(string: "https://openweathermap.org/img/wn/\(weather.weather[0].icon)@2x.png")) { image in
                         image.resizable()
@@ -140,20 +121,21 @@ struct WeatherView: View {
                 
                 Spacer()
                 
+                // MARK: Indexes
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Weather indexes now")
                         .bold().font(.headline)
                     
                     HStack {
-                        WeatherRow(logo: "thermometer.low", name: "Min temp", value:(weather.main.temp_min.roundDouble()+"°"))
+                        WeatherRow(logo: "thermometer.low", name: "Min temp", value: "\(weather.main.temp_min.roundDouble())°")
                         Spacer()
-                        WeatherRow(logo: "thermometer.high", name: "Max temp", value:(weather.main.temp_max.roundDouble()+"°"))
+                        WeatherRow(logo: "thermometer.high", name: "Max temp", value: "\(weather.main.temp_max.roundDouble())°")
                     }
                     
                     HStack {
-                        WeatherRow(logo: "wind", name: "Wind speed", value:(weather.wind.speed.roundDouble()+"m/s"))
+                        WeatherRow(logo: "wind", name: "Wind speed", value: "\(weather.wind.speed.roundDouble()) m/s")
                         Spacer()
-                        WeatherRow(logo: "humidity", name: "Humidity", value:(weather.main.humidity.roundDouble()+"%"))
+                        WeatherRow(logo: "humidity", name: "Humidity", value: "\(weather.main.humidity.roundDouble())%")
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,25 +145,21 @@ struct WeatherView: View {
                 .foregroundColor(Color(hue: 0.656, saturation: 0.787, brightness: 0.354))
                 .background(.white)
                 .cornerRadius(20, corners: [.topLeft, .topRight])
-                
             }
-            
         }
-        .background(Color(hue: 0.656, saturation: 0.787, brightness: 0.354, opacity: 1))
+        .background(Color(hue: 0.656, saturation: 0.787, brightness: 0.354))
         .preferredColorScheme(.dark)
-        
     }
-        
 }
 
-
 #Preview {
-    WeatherView(weather: previewWeather)
+    WeatherView(weather: .constant(previewWeather), forecast: .constant(previewForecast))
         .environmentObject(WeatherManager())
         .environmentObject(CitySearchManager())
         .environmentObject(FavoritesManager())
         .environmentObject(ForecastManager())
 }
+
 
 // Animations depending on weather
 struct WeatherAnimation: ViewModifier {
